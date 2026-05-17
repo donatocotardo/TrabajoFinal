@@ -6,7 +6,7 @@ from typing import Any
 
 class PHIEntity(BaseModel):
     text: str = Field(description="Exact text span detected in the clinical note")
-    label: Literal["NOMBRE", "DIRECCIÓN", "TELÉFONO", "EMAIL", "FECHA"]
+    label: Literal["NOMBRE", "DIRECCIÓN", "TELÉFONO", "EMAIL", "FECHA","DNI"]
 
 
 class PHIExtractionResult(BaseModel):
@@ -26,6 +26,7 @@ def detect_phi_with_ollama(
 You are a clinical text de-identification assistant.
 
 Your task is to detect protected health information in the text.
+
 Detect only the following categories:
 
 - NOMBRE: patient names, doctor names or personal names
@@ -33,11 +34,21 @@ Detect only the following categories:
 - TELÉFONO: phone numbers
 - EMAIL: email addresses
 - FECHA: dates, dates of birth, visit dates, admission dates
+- DNI: Spanish national identity document numbers, with or without the final letter
 
-Return only the exact text spans that appear in the input.
-Do not rewrite the medical content.
-Do not invent entities.
-Do not include clinical conditions, diagnoses, symptoms or treatments.
+Important rules:
+- Return only exact text spans that appear in the input.
+- Return only the sensitive value, not the field name.
+- If the input says "Patient name: John Smith", return only "John Smith".
+- If the input says "Patiemt nme: John Smith", return only "John Smith".
+- If the input says "Adress: 24 Green Street", return only "24 Green Street".
+- If the input says "DNI number: 12345678A", return only "12345678A".
+- If the input says "Dr. Pamela Lopez", return only "Pamela Lopez".
+- Do not rewrite the medical content.
+- Do not invent entities.
+- Do not include clinical conditions, diagnoses, symptoms, treatments, medications or diseases.
+- Detect identifiers even if the field name contains abbreviations or spelling mistakes.
+- If a Spanish DNI appears without being explicitly labelled as DNI, detect it as DNI when it looks like a Spanish ID number.
 
 Clinical text:
 {text}

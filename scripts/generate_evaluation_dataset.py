@@ -10,6 +10,20 @@ Faker.seed(42)
 
 OUTPUT_PATH = Path("data/evaluation/evaluation_dataset.jsonl")
 
+_DNI_LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE"
+
+
+def generate_dni() -> str:
+    """Returns a random 8-digit Spanish DNI with the correct check letter."""
+    number = random.randint(10_000_000, 99_999_999)
+    letter = _DNI_LETTERS[number % 23]
+    return f"{number}{letter}"
+
+
+def generate_dni_digits() -> str:
+    """Returns 8 random digits (DNI without check letter)."""
+    return str(random.randint(10_000_000, 99_999_999))
+
 
 CLINICAL_NOTES = [
     "The patient presents with abdominal pain, nausea and mild fever. Past medical history includes Crohn's disease.",
@@ -45,7 +59,7 @@ def generate_standard_case(example_id: int):
     phone = fake.phone_number()
     email = fake.email()
     visit_date = fake.date_between(start_date="-2y", end_date="today").strftime("%m/%d/%Y")
-    dni = "12345678A"
+    dni = generate_dni()
 
     clinical_note = random.choice(CLINICAL_NOTES)
 
@@ -92,7 +106,7 @@ def generate_abbreviation_case(example_id: int):
     address = fake.address().replace("\n", ", ")
     phone = fake.phone_number()
     email = fake.email()
-    dni = "87654321B"
+    dni = generate_dni()
 
     clinical_note = random.choice(CLINICAL_NOTES)
 
@@ -136,7 +150,7 @@ def generate_typo_case(example_id: int):
     address = fake.address().replace("\n", ", ")
     phone = fake.phone_number()
     email = fake.email()
-    dni = "11223344C"
+    dni = generate_dni()
 
     clinical_note = random.choice(CLINICAL_NOTES)
 
@@ -175,7 +189,7 @@ Clinical note:
 
 def generate_dni_missing_letter_case(example_id: int):
     name = fake.name()
-    dni_without_letter = "45678912"
+    dni_without_letter = generate_dni_digits()
     clinical_note = random.choice(CLINICAL_NOTES)
 
     text = f"""Patient: {name}
@@ -207,7 +221,7 @@ def generate_unlabelled_identifier_case(example_id: int):
     name = fake.name()
     phone = fake.phone_number()
     email = fake.email()
-    dni = "99887766D"
+    dni = generate_dni()
 
     clinical_note = random.choice(CLINICAL_NOTES)
 
@@ -281,7 +295,7 @@ def generate_long_mixed_text_case(example_id: int):
     phone = fake.phone_number()
     email = fake.email()
     visit_date = fake.date_between(start_date="-2y", end_date="today").strftime("%m/%d/%Y")
-    dni = "13572468E"
+    dni = generate_dni()
 
     text = f"""Clinical consultation report
 

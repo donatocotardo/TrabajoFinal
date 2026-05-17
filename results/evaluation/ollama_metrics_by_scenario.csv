@@ -1,8 +1,9 @@
-scenario,num_examples,tp,fp,fn,precision,recall,f1,failure_rate
-abbreviations,5,30,1,0,0.9677,1.0,0.9836,0.0
-dni_missing_letter,5,10,0,0,1.0,1.0,1.0,0.0
-long_mixed_text,5,40,2,0,0.9524,1.0,0.9756,0.0
-sensitive_clinical_data,5,10,0,0,1.0,1.0,1.0,0.0
-standard,5,35,0,0,1.0,1.0,1.0,0.0
-typos,5,30,1,0,0.9677,1.0,0.9836,0.0
-unlabelled_identifiers,5,20,1,0,0.9524,1.0,0.9756,0.0
+scenario,num_examples,tp,fp,fn,support,precision,recall,f1,failure_rate
+abbreviations,5,30,1,0,30,0.9677,1.0,0.9836,0.0
+dni_missing_letter,5,10,0,0,10,1.0,1.0,1.0,0.0
+long_mixed_text,5,40,2,0,40,0.9524,1.0,0.9756,0.0
+sensitive_clinical_data,5,10,0,0,10,1.0,1.0,1.0,0.0
+standard,5,35,0,0,35,1.0,1.0,1.0,0.0
+typos,5,30,1,0,30,0.9677,1.0,0.9836,0.0
+unlabelled_identifiers,5,20,1,0,20,0.9524,1.0,0.9756,0.0
+TOTAL,35,175,5,0,175,0.9722,1.0,0.9859,0.0

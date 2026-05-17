@@ -15,6 +15,7 @@ DATASET_PATH = Path("data/evaluation/evaluation_dataset.jsonl")
 OUTPUT_DIR = Path("results/evaluation")
 PREDICTIONS_PATH = OUTPUT_DIR / "ollama_predictions.jsonl"
 METRICS_PATH = OUTPUT_DIR / "ollama_metrics_by_scenario.csv"
+ENTITY_LABEL_METRICS_PATH = OUTPUT_DIR / "ollama_metrics_by_label.csv"
 
 
 def normalize_text(text: str) -> str:
@@ -125,7 +126,7 @@ def evaluate_example(example: dict, model: str) -> dict:
 def aggregate_by_scenario(results: list[dict]) -> list[dict]:
     """
     Aggregates TP, FP and FN by scenario and computes global metrics
-    for each scenario.
+    for each scenario. Appends a TOTAL row with micro-averaged metrics.
     """
 
     grouped = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0, "num_examples": 0})
@@ -153,6 +154,7 @@ def aggregate_by_scenario(results: list[dict]) -> list[dict]:
                 "tp": counts["tp"],
                 "fp": counts["fp"],
                 "fn": counts["fn"],
+                "support": counts["tp"] + counts["fn"],
                 "precision": round(metrics["precision"], 4),
                 "recall": round(metrics["recall"], 4),
                 "f1": round(metrics["f1"], 4),
@@ -161,6 +163,89 @@ def aggregate_by_scenario(results: list[dict]) -> list[dict]:
         )
 
     rows.sort(key=lambda row: row["scenario"])
+
+    total_tp = sum(r["tp"] for r in rows)
+    total_fp = sum(r["fp"] for r in rows)
+    total_fn = sum(r["fn"] for r in rows)
+    global_metrics = compute_metrics(total_tp, total_fp, total_fn)
+
+    rows.append(
+        {
+            "scenario": "TOTAL",
+            "num_examples": sum(r["num_examples"] for r in rows),
+            "tp": total_tp,
+            "fp": total_fp,
+            "fn": total_fn,
+            "support": total_tp + total_fn,
+            "precision": round(global_metrics["precision"], 4),
+            "recall": round(global_metrics["recall"], 4),
+            "f1": round(global_metrics["f1"], 4),
+            "failure_rate": round(global_metrics["failure_rate"], 4),
+        }
+    )
+
+    return rows
+
+
+def aggregate_by_entity_label(results: list[dict]) -> list[dict]:
+    """
+    Aggregates TP, FP and FN by entity label (NOMBRE, FECHA, etc.)
+    and computes per-label precision, recall, F1, and failure rate.
+    """
+
+    grouped: dict[str, dict] = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
+
+    for result in results:
+        for entity in result["true_positives"]:
+            grouped[entity["label"]]["tp"] += 1
+        for entity in result["false_positives"]:
+            grouped[entity["label"]]["fp"] += 1
+        for entity in result["false_negatives"]:
+            grouped[entity["label"]]["fn"] += 1
+
+    rows = []
+
+    for label, counts in grouped.items():
+        metrics = compute_metrics(
+            tp=counts["tp"],
+            fp=counts["fp"],
+            fn=counts["fn"],
+        )
+
+        rows.append(
+            {
+                "label": label,
+                "tp": counts["tp"],
+                "fp": counts["fp"],
+                "fn": counts["fn"],
+                "support": counts["tp"] + counts["fn"],
+                "precision": round(metrics["precision"], 4),
+                "recall": round(metrics["recall"], 4),
+                "f1": round(metrics["f1"], 4),
+                "failure_rate": round(metrics["failure_rate"], 4),
+            }
+        )
+
+    rows.sort(key=lambda row: row["label"])
+
+    total_tp = sum(r["tp"] for r in rows)
+    total_fp = sum(r["fp"] for r in rows)
+    total_fn = sum(r["fn"] for r in rows)
+    global_metrics = compute_metrics(total_tp, total_fp, total_fn)
+
+    rows.append(
+        {
+            "label": "TOTAL",
+            "tp": total_tp,
+            "fp": total_fp,
+            "fn": total_fn,
+            "support": total_tp + total_fn,
+            "precision": round(global_metrics["precision"], 4),
+            "recall": round(global_metrics["recall"], 4),
+            "f1": round(global_metrics["f1"], 4),
+            "failure_rate": round(global_metrics["failure_rate"], 4),
+        }
+    )
 
     return rows
 
@@ -173,20 +258,8 @@ def save_predictions(results: list[dict], path: Path):
             file.write(json.dumps(result, ensure_ascii=False) + "\n")
 
 
-def save_metrics_csv(rows: list[dict], path: Path):
+def save_metrics_csv(rows: list[dict], path: Path, fieldnames: list[str]):
     path.parent.mkdir(parents=True, exist_ok=True)
-
-    fieldnames = [
-        "scenario",
-        "num_examples",
-        "tp",
-        "fp",
-        "fn",
-        "precision",
-        "recall",
-        "f1",
-        "failure_rate",
-    ]
 
     with path.open("w", encoding="utf-8", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
@@ -197,18 +270,45 @@ def save_metrics_csv(rows: list[dict], path: Path):
 def print_metrics_table(rows: list[dict]):
     print("\n===== METRICS BY SCENARIO =====")
     print(
-        f"{'Scenario':<28} {'N':>3} {'TP':>4} {'FP':>4} {'FN':>4} "
-        f"{'Precision':>10} {'Recall':>8} {'F1':>8} {'Failure':>8}"
+        f"{'Scenario':<28} {'N':>3} {'TP':>4} {'FP':>4} {'FN':>4} {'Sup':>5} "
+        f"{'Precision':>10} {'Recall':>8} {'F1':>8} {'Miss':>8}"
     )
-    print("-" * 90)
+    print("-" * 96)
 
     for row in rows:
+        if row["scenario"] == "TOTAL":
+            print("-" * 96)
         print(
             f"{row['scenario']:<28} "
             f"{row['num_examples']:>3} "
             f"{row['tp']:>4} "
             f"{row['fp']:>4} "
             f"{row['fn']:>4} "
+            f"{row['support']:>5} "
+            f"{row['precision']:>10.4f} "
+            f"{row['recall']:>8.4f} "
+            f"{row['f1']:>8.4f} "
+            f"{row['failure_rate']:>8.4f}"
+        )
+
+
+def print_entity_label_table(rows: list[dict]):
+    print("\n===== METRICS BY ENTITY LABEL =====")
+    print(
+        f"{'Label':<14} {'TP':>4} {'FP':>4} {'FN':>4} {'Sup':>5} "
+        f"{'Precision':>10} {'Recall':>8} {'F1':>8} {'Miss':>8}"
+    )
+    print("-" * 72)
+
+    for row in rows:
+        if row["label"] == "TOTAL":
+            print("-" * 72)
+        print(
+            f"{row['label']:<14} "
+            f"{row['tp']:>4} "
+            f"{row['fp']:>4} "
+            f"{row['fn']:>4} "
+            f"{row['support']:>5} "
             f"{row['precision']:>10.4f} "
             f"{row['recall']:>8.4f} "
             f"{row['f1']:>8.4f} "
@@ -263,15 +363,29 @@ def main():
             print(f"Error evaluating example {example['id']}: {exc}")
 
     metrics_rows = aggregate_by_scenario(results)
+    entity_label_rows = aggregate_by_entity_label(results)
 
     save_predictions(results, PREDICTIONS_PATH)
-    save_metrics_csv(metrics_rows, METRICS_PATH)
+    save_metrics_csv(
+        metrics_rows,
+        METRICS_PATH,
+        fieldnames=["scenario", "num_examples", "tp", "fp", "fn", "support",
+                    "precision", "recall", "f1", "failure_rate"],
+    )
+    save_metrics_csv(
+        entity_label_rows,
+        ENTITY_LABEL_METRICS_PATH,
+        fieldnames=["label", "tp", "fp", "fn", "support",
+                    "precision", "recall", "f1", "failure_rate"],
+    )
 
     print_metrics_table(metrics_rows)
+    print_entity_label_table(entity_label_rows)
 
     print("\nSaved files:")
     print(f"- {PREDICTIONS_PATH}")
     print(f"- {METRICS_PATH}")
+    print(f"- {ENTITY_LABEL_METRICS_PATH}")
 
 
 if __name__ == "__main__":

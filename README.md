@@ -2,8 +2,8 @@
 
 Proyecto final de la asignatura **Bioinformática y Medicina** del **Grado en Inteligencia Artificial** de la **Universidade da Coruña (UDC)**.
 
-> **Zenodo DOI:** *(pendiente de release)*
-> **Presentación:** *(pendiente)*
+- **Zenodo DOI:** 10.5281/zenodo.20284534
+- **Presentación:** [URL](https://udcgal-my.sharepoint.com/:p:/g/personal/david_vaamonde_estevez_udc_es/IQCr3YiFSky8RLfabQIe_V15AThpFxijCT_0jd7PjEud72Q?e=uN2T4s)
 
 ## Autores
 
